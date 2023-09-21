@@ -157,12 +157,13 @@ def normalize_dataset(train, test, norm_method):
     return train_norm, test_norm, norm_params
 
 
-def build_preprocessing_window(train, test, past_history, forecast_horizon, delay):
+def build_preprocessing_window(train, test, future_variables, past_history, forecast_horizon, delay):
     """Builds the preprocessing window for the given train and test datasets.
 
     Args:
         train (numpy.array): The train dataset.
         test (numpy.array): The test dataset.
+        future_variables (list): The future variables to use for prediction.
         past_history (int): The number of past timesteps to use for prediction.
         forecast_horizon (int): The number of future timesteps to predict.
         delay (int): The delay to use for the prediction.
@@ -179,7 +180,9 @@ def build_preprocessing_window(train, test, past_history, forecast_horizon, dela
     for i in range(past_history, len(train) - forecast_horizon - delay + 1):
         x_train.append(train[i - past_history:i])
         y_train.append(train[i + delay:i + delay + forecast_horizon][:, -1]) # -1 para obtener variable a predecir
-        x_train_future.append(train[i + delay:i + delay + forecast_horizon][:, [0,1,2]]) 
+        
+        if len(future_variables) > 0:
+            x_train_future.append(train[i + delay:i + delay + forecast_horizon][:, future_variables]) 
 
     for i in range(past_history, len(test) - forecast_horizon - delay + 1):
         x_test.append(test[i - past_history:i])
@@ -192,13 +195,14 @@ def build_preprocessing_window(train, test, past_history, forecast_horizon, dela
     return (x_train, ) , y_train, x_test, y_test
 
 
-def read_data(filename, features, start_train, end_train, 
+def read_data(filename, features, future_variables, start_train, end_train, 
               start_test, end_test, past_history, forecast_horizon, delay, norm_method):
     """Reads the data from the given filename and builds the preprocessing window.
 
     Args:
         filename (string): The name of the file to read.
         features (list): The features to use for prediction.
+        future_variables (list): The future variables to use for prediction.
         start_train (string): The start date for the train dataset.
         end_train (string): The end date for the train dataset.
         start_test (string): The start date for the test dataset.
@@ -216,7 +220,7 @@ def read_data(filename, features, start_train, end_train,
     """
     train, test = build_dataset(filename, features, start_train, end_train, start_test, end_test)
     train_norm, test_norm, norm_params = normalize_dataset(train, test, norm_method)
-    x_train, y_train, x_test, y_test = build_preprocessing_window(train_norm, test_norm, 
+    x_train, y_train, x_test, y_test = build_preprocessing_window(train_norm, test_norm, future_variables,
                                                                   past_history, forecast_horizon,delay)
 
     y_test_denorm = np.zeros(y_test.shape)

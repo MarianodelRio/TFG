@@ -80,114 +80,117 @@ def main_ml(parameters_path, results_path):
     dataset_path = parameters['dataset_path']
     models_ml = parameters['models_ml']
     metrics = parameters['metrics']
-    features = parameters['features']
     delay = parameters['delay']
     start_train = parameters['start_train']
     end_train = parameters['end_train']
     start_test = parameters['start_test']
     end_test = parameters['end_test']
+    future_variables_list = parameters['future_variables']
 
     print("Variable a predecir debe estar en última columna del dataset \n")
-            
-    for model_name in models_ml:
-        for normalization_method, past_history, forecast_horizon, \
-        start_train, end_train, start_test, end_test in itertools.product(
-                parameters['normalization_method'],
-                parameters['past_history'],
-                parameters['forecast_horizon'],
-                parameters['start_train'],
-                parameters['end_train'],
-                parameters['start_test'],
-                parameters['end_test']
+    
+    for i, features in enumerate(parameters['features']):
+        future_variables = future_variables_list[i]        
+        for model_name in models_ml:
+            for normalization_method, past_history, forecast_horizon, \
+            start_train, end_train, start_test, end_test in itertools.product(
+                    parameters['normalization_method'],
+                    parameters['past_history'],
+                    parameters['forecast_horizon'],
+                    parameters['start_train'],
+                    parameters['end_train'],
+                    parameters['start_test'],
+                    parameters['end_test']
 
-        ): 
-            csv_filepath = '{}/results_ml.csv'.format(results_path)
-            results = read_results_file(csv_filepath, metrics)
+            ): 
+                csv_filepath = '{}/results_ml.csv'.format(results_path)
+                results = read_results_file(csv_filepath, metrics)
 
-            x_train, y_train, x_test, x_test_denorm, y_test, y_test_denorm, norm_params = read_data(dataset_path, 
-            features,
-            start_train,
-            end_train,
-            start_test,
-            end_test, 
-            past_history, 
-            forecast_horizon, 
-            delay, 
-            normalization_method)
+                x_train, y_train, x_test, x_test_denorm, y_test, y_test_denorm, norm_params = read_data(dataset_path, 
+                features,
+                future_variables,
+                start_train,
+                end_train,
+                start_test,
+                end_test, 
+                past_history, 
+                forecast_horizon, 
+                delay, 
+                normalization_method)
 
-            
-            past_history = x_test.shape[1]
-            forecast_horizon = y_test.shape[1]
-
-            parameters_models = parameters['model_params'][model_name]
-            list_parameters_models = []
-            for parameter_field in parameters_models.keys():
-                list_parameters_models.append(parameters_models[parameter_field])
-
-            for iter_params in itertools.product(*list_parameters_models):
-                test_forecast, training_time, test_time = TRAIN_ML[model_name](
-                    model_name,
-                    iter_params,
-                    x_train,
-                    y_train,
-                    x_test,
-                    norm_params,
-                    normalization_method
-                )
-
-                if metrics:
-                    test_metrics = evaluate(x_test_denorm, y_test_denorm, test_forecast, metrics)
-                else:
-                    test_metrics = {}
-
-                num_features = len(features)
-                data_date = "Train: {} - {} | Test: {} - {}".format(
-                    start_train, end_train, start_test, end_test
-                )
-                prediction_path = '{}/{}/{}/{}/{}/{}/'.format(
-                    results_path,
-                    data_date,
-                    num_features,
-                    normalization_method,
-                    str(past_history),
-                    model_name,
-                )
-
-                if not os.path.exists(prediction_path):
-                    os.makedirs(prediction_path)
-
-                np.save(prediction_path + "real" + '.npy', y_test_denorm)
-                np.save(prediction_path + "predicted" + '.npy', test_forecast)
-
-                iter_params_str = "".join(str(iter_params).split(','))
-                features_str = "".join(str(features).split(','))
-                results = results._append(
-                    {
-                        "FEATURES": features_str,
-                        "TRAIN DATE": start_train + ' - ' + end_train,
-                        "TEST DATE": start_test + ' - ' + end_test,
-                        "MODEL": model_name,
-                        "MODEL_DESCRIPTION": iter_params_str,
-                        "FORECAST_HORIZON": forecast_horizon,
-                        "PAST_HISTORY": past_history,
-                        "NORMALIZATION": normalization_method,
-                        "TRAINING_TIME": training_time,
-                        "TEST_TIME": test_time,
-                        **test_metrics,
-                    },
-                    ignore_index=True
-                )
-
-                print('\nEND OF EXPERIMENT -> {}/{}/{}/{}/{}/{} \n\n'.format(
-                    results_path,
-                    data_date,
-                    num_features,
-                    normalization_method,
-                    past_history,
-                    model_name
-                ))
                 
-                results.to_csv(csv_filepath, sep=";")
+                past_history = x_test.shape[1]
+                forecast_horizon = y_test.shape[1]
+
+                parameters_models = parameters['model_params'][model_name]
+                list_parameters_models = []
+                for parameter_field in parameters_models.keys():
+                    list_parameters_models.append(parameters_models[parameter_field])
+
+                for iter_params in itertools.product(*list_parameters_models):
+                    test_forecast, training_time, test_time = TRAIN_ML[model_name](
+                        model_name,
+                        iter_params,
+                        x_train,
+                        y_train,
+                        x_test,
+                        norm_params,
+                        normalization_method
+                    )
+
+                    if metrics:
+                        test_metrics = evaluate(x_test_denorm, y_test_denorm, test_forecast, metrics)
+                    else:
+                        test_metrics = {}
+
+                    num_features = len(features)
+                    data_date = "Train: {} - {} | Test: {} - {}".format(
+                        start_train, end_train, start_test, end_test
+                    )
+                    prediction_path = '{}/{}/{}/{}/{}/{}/'.format(
+                        results_path,
+                        data_date,
+                        num_features,
+                        normalization_method,
+                        str(past_history),
+                        model_name,
+                    )
+
+                    if not os.path.exists(prediction_path):
+                        os.makedirs(prediction_path)
+
+                    np.save(prediction_path + "real" + '.npy', y_test_denorm)
+                    np.save(prediction_path + "predicted" + '.npy', test_forecast)
+
+                    iter_params_str = "".join(str(iter_params).split(','))
+                    features_str = "".join(str(features).split(','))
+                    results = results._append(
+                        {
+                            "FEATURES": features_str,
+                            "TRAIN DATE": start_train + ' - ' + end_train,
+                            "TEST DATE": start_test + ' - ' + end_test,
+                            "MODEL": model_name,
+                            "MODEL_DESCRIPTION": iter_params_str,
+                            "FORECAST_HORIZON": forecast_horizon,
+                            "PAST_HISTORY": past_history,
+                            "NORMALIZATION": normalization_method,
+                            "TRAINING_TIME": training_time,
+                            "TEST_TIME": test_time,
+                            **test_metrics,
+                        },
+                        ignore_index=True
+                    )
+
+                    print('\nEND OF EXPERIMENT -> {}/{}/{}/{}/{}/{} \n\n'.format(
+                        results_path,
+                        data_date,
+                        num_features,
+                        normalization_method,
+                        past_history,
+                        model_name
+                    ))
+                    
+                    results.to_csv(csv_filepath, sep=";")
 
 
 
@@ -195,7 +198,5 @@ if __name__ == '__main__':
     parameters_path = './parameters.json'
     output_path = '../results'
     main_ml(parameters_path, output_path)
-    import session_info
-    session_info.show()
     
     
