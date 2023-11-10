@@ -11,7 +11,6 @@
     "past_history": [4],
     "forecast_horizon" : [24],
     "delay": 12,
-    "future_variables": ["False", "True"],
     "model_params": {
         
         "xgb":{
