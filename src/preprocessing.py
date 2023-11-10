@@ -174,12 +174,12 @@ def build_preprocessing_window(train, test, past_history, forecast_horizon, dela
     
     x_train, y_train = [], []
     x_test, y_test = [], []
-
+    x_train_future = []
     
     for i in range(past_history, len(train) - forecast_horizon - delay + 1):
-
         x_train.append(train[i - past_history:i])
         y_train.append(train[i + delay:i + delay + forecast_horizon][:, -1]) # -1 para obtener variable a predecir
+        x_train_future.append(train[i + delay:i + delay + forecast_horizon][:, [0,1,2]]) 
 
     for i in range(past_history, len(test) - forecast_horizon - delay + 1):
         x_test.append(test[i - past_history:i])
@@ -187,8 +187,9 @@ def build_preprocessing_window(train, test, past_history, forecast_horizon, dela
 
     x_train, y_train = np.array(x_train), np.array(y_train)
     x_test, y_test = np.array(x_test), np.array(y_test)
+    x_train_future = np.array(x_train_future)
 
-    return x_train, y_train, x_test, y_test
+    return (x_train, ) , y_train, x_test, y_test
 
 
 def read_data(filename, features, start_train, end_train, 
@@ -226,7 +227,7 @@ def read_data(filename, features, start_train, end_train,
     x_test_denorm = denormalize_data(x_test, norm_params, norm_method)
     
     print("TRAINING DATA")
-    print("Input shape:", x_train.shape)
+    print("Input shape:", x_train[0].shape)
     print("Output shape:", y_train.shape)
 
     print("\nTEST DATA")

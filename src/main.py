@@ -39,14 +39,21 @@ def read_results_file(csv_filepath, metrics):
 def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, normalization_method):
     model = create_model_ml(model_name, iter_params)
 
-    x_train2 = x_train.reshape(x_train.shape[0], x_train.shape[1] * x_train.shape[2])
-    print('x_train: {} -> {}'.format(x_train.shape, x_train2.shape))
+    x_train1 = x_train[0] 
+    #x_train2 = x_train[1] 
+
+    x_trainf = x_train1.reshape(x_train1.shape[0], x_train1.shape[1] * x_train1.shape[2])
+    #x_train2 = x_train2.reshape(x_train2.shape[0], x_train2.shape[1] * x_train2.shape[2])
+    #x_trainf = np.concatenate((x_trainf, x_train2), axis=1)
+    print('x_train: {} -> {}'.format(x_train1.shape, x_trainf.shape))
+
     training_time_0 = time.time()
-    model.fit(x_train2, y_train)
+    model.fit(x_trainf, y_train)
     training_time = time.time() - training_time_0
 
     x_test2 = x_test.reshape(x_test.shape[0], x_test.shape[1] * x_test.shape[2])
     print('x_test: {} -> {}'.format(x_test.shape, x_test2.shape))
+
     test_time_0 = time.time()
     test_forecast = model.predict(x_test2)
     test_time = time.time() - test_time_0
