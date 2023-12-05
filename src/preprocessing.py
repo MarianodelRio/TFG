@@ -50,7 +50,10 @@ def train_test_split(dataset, start_train, end_train, start_test, end_test):
         numpy.array: The test dataset.
     """
     train = dataset[start_train:end_train]
-    test = dataset[start_test:end_test]
+    if end_test == " ":
+        test = dataset[start_test:]
+    else:
+        test = dataset[start_test:end_test]
     return train, test
 
 def normalize_data(data, params, method, feature=None):
@@ -176,6 +179,7 @@ def build_preprocessing_window(train, test, future_variables, past_history, fore
     x_train, y_train = [], []
     x_test, y_test = [], []
     x_train_future = []
+    x_test_future = []
     
     for i in range(past_history, len(train) - forecast_horizon - delay + 1):
         x_train.append(train[i - past_history:i])
@@ -187,12 +191,19 @@ def build_preprocessing_window(train, test, future_variables, past_history, fore
     for i in range(past_history, len(test) - forecast_horizon - delay + 1):
         x_test.append(test[i - past_history:i])
         y_test.append(test[i + delay:i + delay + forecast_horizon][:, -1]) # -1 para obtener variable a predecir
-
+        
+        if len(future_variables) > 0:
+            x_test_future.append(test[i + delay:i + delay + forecast_horizon][:, future_variables])
+            
     x_train, y_train = np.array(x_train), np.array(y_train)
     x_test, y_test = np.array(x_test), np.array(y_test)
     x_train_future = np.array(x_train_future)
-
-    return (x_train, ) , y_train, x_test, y_test
+    x_test_future = np.array(x_test_future)
+    
+    if len(future_variables) > 0:
+        return (x_train, x_train_future) , y_train, (x_test, x_test_future), y_test
+    else:
+        return (x_train, ) , y_train, (x_test, ), y_test
 
 
 def read_data(filename, features, future_variables, start_train, end_train, 
@@ -228,14 +239,14 @@ def read_data(filename, features, future_variables, start_train, end_train,
         y_test_denorm[i] = denormalize_data(
             y_test[i], norm_params, norm_method, -1
         )
-    x_test_denorm = denormalize_data(x_test, norm_params, norm_method)
+    x_test_denorm = denormalize_data(x_test[0], norm_params, norm_method)
     
     print("TRAINING DATA")
     print("Input shape:", x_train[0].shape)
     print("Output shape:", y_train.shape)
 
     print("\nTEST DATA")
-    print("Input shape:", x_test.shape)
+    print("Input shape:", x_test[0].shape)
     print("Output shape:", y_test.shape)
 
     return x_train, y_train, x_test, x_test_denorm, y_test, y_test_denorm, norm_params

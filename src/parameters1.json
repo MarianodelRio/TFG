@@ -1,0 +1,45 @@
+{
+    "dataset_path": "../data/electricSystem/dataset.csv",
+    "start_train": ["2021-01-01 00:00:00"],
+    "end_train": ["2022-01-01 00:00:00"],
+    "start_test": ["2022-01-01 00:00:00"],
+    "end_test": ["2022-02-01 00:00:00"],
+    "models_ml": ["m5p", "rf", "xgb"],
+    "metrics": ["mape", "mae"],
+    "features": [  
+                    ["demanda_electrica", "hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", "precio_electricidad"],
+                    ["demanda_electrica", "generacion_solar", "generacion_eolica","precio_gas", 
+                    "hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", "precio_electricidad"],
+                    ["demanda_electrica", "generacion_solar", "generacion_eolica","precio_gas", 
+                    "tmin_sevilla", "tmax_sevilla", "tmax_barcelona", "tmin_barcelona", "tmax_madrid", "tmin_madrid",
+                    "tmax_valencia", "tmin_valencia", "hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", 
+                    "precio_electricidad"]],
+    "normalization_method": ["zscore"],
+    "past_history": [24, 48, 72, 168],
+    "forecast_horizon" : [24],
+    "delay": 12,
+    "future_variables": [[0], [0, 3], [0, 3, 4, 5, 6, 7, 8, 9, 10, 11]],
+    "model_params": {
+        
+        "xgb":{
+            "booster": ["gbtree"],
+            "n_stimators" : [300],
+            "min_child_weight": [10],
+            "subsample": [0.8],
+            "colsample_bytree": [0.8],
+            "max_depth": [6]
+
+        },
+        "rf" : {
+            "n_stimators" : [300],
+            "max_depth" : [10],
+            "min_samples_split" : [4],
+            "min_samples_leaf": [1]
+        },
+
+        "m5p" : {
+            "max_depth" : [10],
+            "smoothing_constant" : [25]
+        }
+    }
+}

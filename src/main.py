@@ -39,23 +39,34 @@ def read_results_file(csv_filepath, metrics):
 def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, normalization_method):
     model = create_model_ml(model_name, iter_params)
 
-    x_train1 = x_train[0] 
-    #x_train2 = x_train[1] 
+    x_train1 = x_train[0]
+    if len(x_train) > 1: 
+        x_train2 = x_train[1] 
 
     x_trainf = x_train1.reshape(x_train1.shape[0], x_train1.shape[1] * x_train1.shape[2])
-    #x_train2 = x_train2.reshape(x_train2.shape[0], x_train2.shape[1] * x_train2.shape[2])
-    #x_trainf = np.concatenate((x_trainf, x_train2), axis=1)
     print('x_train: {} -> {}'.format(x_train1.shape, x_trainf.shape))
+    if len(x_train) > 1:
+        x_train2 = x_train2.reshape(x_train2.shape[0], x_train2.shape[1] * x_train2.shape[2])
+        x_trainf = np.concatenate((x_trainf, x_train2), axis=1)
+        print('x_train (with future): {} -> {}'.format(x_train1.shape, x_trainf.shape))
 
     training_time_0 = time.time()
     model.fit(x_trainf, y_train)
     training_time = time.time() - training_time_0
 
-    x_test2 = x_test.reshape(x_test.shape[0], x_test.shape[1] * x_test.shape[2])
-    print('x_test: {} -> {}'.format(x_test.shape, x_test2.shape))
-
+    x_test1 = x_test[0]
+    if len(x_test) > 1:
+        x_test2 = x_test[1]
+    
+    x_testf = x_test1.reshape(x_test1.shape[0], x_test1.shape[1] * x_test1.shape[2])
+    print('x_test: {} -> {}'.format(x_test1.shape, x_testf.shape))
+    if len(x_test) > 1:
+        x_test2 = x_test2.reshape(x_test2.shape[0], x_test2.shape[1] * x_test2.shape[2])
+        x_testf = np.concatenate((x_testf, x_test2), axis=1)
+        print('x_test (with future): {} -> {}'.format(x_test1.shape, x_testf.shape))
+    
     test_time_0 = time.time()
-    test_forecast = model.predict(x_test2)
+    test_forecast = model.predict(x_testf)
     test_time = time.time() - test_time_0
 
     for i in range(test_forecast.shape[0]):
@@ -90,7 +101,10 @@ def main_ml(parameters_path, results_path):
     print("Variable a predecir debe estar en última columna del dataset \n")
     
     for i, features in enumerate(parameters['features']):
-        future_variables = future_variables_list[i]        
+        if len(future_variables_list) > 0:
+            future_variables = future_variables_list[i]
+        else:
+            future_variables = []        
         for model_name in models_ml:
             for normalization_method, past_history, forecast_horizon, \
             start_train, end_train, start_test, end_test in itertools.product(
@@ -119,7 +133,7 @@ def main_ml(parameters_path, results_path):
                 normalization_method)
 
                 
-                past_history = x_test.shape[1]
+                past_history = x_test[0].shape[1]
                 forecast_horizon = y_test.shape[1]
 
                 parameters_models = parameters['model_params'][model_name]
@@ -195,8 +209,13 @@ def main_ml(parameters_path, results_path):
 
 
 if __name__ == '__main__':
-    parameters_path = './parameters.json'
+    parameters_path1 = './parameters1.json'
+    parameters_path2 = './parameters2.json'
+    parameters_path3 = './parameters3.json'
+    parameters_path4 = './parameters4.json'
     output_path = '../results'
-    main_ml(parameters_path, output_path)
+    
+    main_ml(parameters_path3, output_path)
+    main_ml(parameters_path4, output_path)
     
     
