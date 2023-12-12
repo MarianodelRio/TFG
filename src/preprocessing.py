@@ -196,7 +196,13 @@ def build_preprocessing_window(train, test, future_variables, past_history, fore
             x_test_future.append(test[i + delay:i + delay + forecast_horizon][:, future_variables])
             
     x_train, y_train = np.array(x_train), np.array(y_train)
+    if len(future_variables) > 0:
+        x_train = np.delete(x_train, 0, axis=2)
+
     x_test, y_test = np.array(x_test), np.array(y_test)
+    if len(future_variables) > 0:
+        x_test = np.delete(x_test, 0, axis=2)
+        
     x_train_future = np.array(x_train_future)
     x_test_future = np.array(x_test_future)
     

@@ -4,21 +4,17 @@
     "end_train": ["2022-01-01 00:00:00"],
     "start_test": ["2022-01-01 00:00:00"],
     "end_test": ["2022-02-01 00:00:00"],
-    "models_ml": ["m5p", "rf", "xgb"],
+    "models_ml": ["m5p", "rf"],
     "metrics": ["mape", "mae"],
-    "features": [  
-                    ["demanda_electrica", "hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", "precio_electricidad"],
-                    ["demanda_electrica", "generacion_solar", "generacion_eolica","precio_gas", 
-                    "hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", "precio_electricidad"],
-                    ["demanda_electrica", "generacion_solar", "generacion_eolica","precio_gas", 
-                    "tmin_sevilla", "tmax_sevilla", "tmax_barcelona", "tmin_barcelona", "tmax_madrid", "tmin_madrid",
-                    "tmax_valencia", "tmin_valencia", "hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", 
-                    "precio_electricidad"]],
+    "features":[["hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", "precio_electricidad"], 
+                ["demanda_electrica", "hora_sin", "hora_cos", "diasemana_sin", "diasemana_cos", "precio_electricidad"]],
     "normalization_method": ["zscore"],
-    "past_history": [24, 48, 72, 168],
+    "past_history": [168],
     "forecast_horizon" : [24],
     "delay": 12,
-    "future_variables": [[0], [0, 3], [0, 3, 4, 5, 6, 7, 8, 9, 10, 11]],
+    "future_variables": [[], [0]],
+    "feature_selectors": ["SelectFromModel"],
+    "percentaje_features": [0.5, 0.25, 0.10],
     "model_params": {
         
         "xgb":{

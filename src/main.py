@@ -11,6 +11,10 @@ import sklearn
 import xgboost
 import matplotlib 
 
+from sklearn.feature_selection import SelectKBest, SelectFromModel, RFE, SequentialFeatureSelector
+from sklearn.feature_selection import r_regression, f_regression
+from CFSmethod import CFS
+
 
 
 
@@ -25,6 +29,7 @@ def read_results_file(csv_filepath, metrics):
                 "TEST DATE",
                 "MODEL",
                 "MODEL_DESCRIPTION",
+                "FEATURE SELECTION",
                 "FORECAST_HORIZON",
                 "PAST_HISTORY",
                 "NORMALIZATION",
@@ -36,7 +41,7 @@ def read_results_file(csv_filepath, metrics):
     return results
 
 
-def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, normalization_method):
+def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, normalization_method, feature_selectors, percentaje_features):
     model = create_model_ml(model_name, iter_params)
 
     x_train1 = x_train[0]
@@ -49,6 +54,25 @@ def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, nor
         x_train2 = x_train2.reshape(x_train2.shape[0], x_train2.shape[1] * x_train2.shape[2])
         x_trainf = np.concatenate((x_trainf, x_train2), axis=1)
         print('x_train (with future): {} -> {}'.format(x_train1.shape, x_trainf.shape))
+
+    # Apply feature selection
+    nf = int(percentaje_features*x_trainf.shape[1])
+    feature_selector = None
+
+
+    if feature_selectors == 'SelectFromModel':
+        feature_selector = SequentialFeatureSelector(model, n_features_to_select=nf)
+        x_trainf = feature_selector.fit_transform(x_trainf, y_train)
+    elif feature_selectors == 'CFS':
+        idx = CFS.cfs(x_trainf, y_train)
+        # Tomar features seleccionadas por idx (indices)
+        x_trainf = x_trainf[:,idx]
+    else: 
+        # Exception 
+        print('Error in feature selection method')
+    
+    
+    print('x_train (with feature selection): {} -> {}'.format(x_train1.shape, x_trainf.shape))
 
     training_time_0 = time.time()
     model.fit(x_trainf, y_train)
@@ -65,6 +89,15 @@ def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, nor
         x_testf = np.concatenate((x_testf, x_test2), axis=1)
         print('x_test (with future): {} -> {}'.format(x_test1.shape, x_testf.shape))
     
+    # Apply feature selection
+    if feature_selectors == 'SelectFromModel':
+        x_testf = feature_selector.transform(x_testf)
+    elif feature_selectors == 'CFS':
+        # Tomar features seleccionadas por idx (indices)
+        x_testf = x_testf[:,idx]
+        
+    print('x_test (with feature selection): {} -> {}'.format(x_test1.shape, x_testf.shape))
+
     test_time_0 = time.time()
     test_forecast = model.predict(x_testf)
     test_time = time.time() - test_time_0
@@ -107,14 +140,16 @@ def main_ml(parameters_path, results_path):
             future_variables = []        
         for model_name in models_ml:
             for normalization_method, past_history, forecast_horizon, \
-            start_train, end_train, start_test, end_test in itertools.product(
+            start_train, end_train, start_test, end_test, feature_selectors, percentaje_features in itertools.product(
                     parameters['normalization_method'],
                     parameters['past_history'],
                     parameters['forecast_horizon'],
                     parameters['start_train'],
                     parameters['end_train'],
                     parameters['start_test'],
-                    parameters['end_test']
+                    parameters['end_test'], 
+                    parameters['feature_selectors'],
+                    parameters['percentaje_features']
 
             ): 
                 csv_filepath = '{}/results_ml.csv'.format(results_path)
@@ -149,7 +184,9 @@ def main_ml(parameters_path, results_path):
                         y_train,
                         x_test,
                         norm_params,
-                        normalization_method
+                        normalization_method, 
+                        feature_selectors, 
+                        percentaje_features
                     )
 
                     if metrics:
@@ -178,6 +215,7 @@ def main_ml(parameters_path, results_path):
 
                     iter_params_str = "".join(str(iter_params).split(','))
                     features_str = "".join(str(features).split(','))
+                    feature_selection = feature_selectors + ' ' + str(percentaje_features)
                     results = results._append(
                         {
                             "FEATURES": features_str,
@@ -185,6 +223,7 @@ def main_ml(parameters_path, results_path):
                             "TEST DATE": start_test + ' - ' + end_test,
                             "MODEL": model_name,
                             "MODEL_DESCRIPTION": iter_params_str,
+                            "FEATURE SELECTION": feature_selection,
                             "FORECAST_HORIZON": forecast_horizon,
                             "PAST_HISTORY": past_history,
                             "NORMALIZATION": normalization_method,
@@ -195,9 +234,10 @@ def main_ml(parameters_path, results_path):
                         ignore_index=True
                     )
 
-                    print('\nEND OF EXPERIMENT -> {}/{}/{}/{}/{}/{} \n\n'.format(
+                    print('\nEND OF EXPERIMENT -> {}/{}/{}/{}/{}/{}/{} \n\n'.format(
                         results_path,
                         data_date,
+                        feature_selection,
                         num_features,
                         normalization_method,
                         past_history,
@@ -215,7 +255,6 @@ if __name__ == '__main__':
     parameters_path4 = './parameters4.json'
     output_path = '../results'
     
-    main_ml(parameters_path3, output_path)
-    main_ml(parameters_path4, output_path)
+    main_ml(parameters_path1, output_path)
     
     
