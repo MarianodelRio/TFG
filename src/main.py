@@ -16,6 +16,48 @@ from sklearn.feature_selection import r_regression, f_regression
 from CFSmethod import CFS
 
 
+def feature_selection_kbest(x_trainf, y_train, nf):
+    # Inicializar un diccionario para almacenar las características seleccionadas por cada salida
+    selected_features_per_output = {}
+    # Iterar sobre cada salida del modelo
+    for i in range(y_train.shape[1]):
+        # Utilizar SelectKBest con la prueba F para seleccionar las mejores características
+        k_best_selector = SelectKBest(score_func=f_regression, k=nf)
+        X_train_selected = k_best_selector.fit_transform(x_trainf, y_train[:, i])
+
+        # Almacenar las características seleccionadas en el diccionario
+        selected_features_per_output[i] = (X_train_selected, k_best_selector.get_support())
+
+    # Realizar votación para determinar las características más votadas
+    feature_votes = np.zeros(x_trainf.shape[1])
+    for i, (_, support) in selected_features_per_output.items():
+        feature_votes += support.astype(int)
+
+    # Obtener las posiciones de las n características más votadas
+    index_features = np.argsort(feature_votes)[-nf:][::-1]
+
+    return index_features
+
+def feature_selection_CFS(x_trainf, y_train, nf):
+    # Inicializar un diccionario para almacenar las características seleccionadas por cada salida
+    selected_features_per_output = {}
+    # Iterar sobre cada salida del modelo
+    for i in range(y_train.shape[1]):
+        # Utilizar SelectKBest con la prueba F para seleccionar las mejores características
+        idx = CFS.cfs(x_trainf, y_train[i])
+
+        # Almacenar las características seleccionadas en el diccionario
+        selected_features_per_output[i] = idx
+
+    # Realizar votación para determinar las características más votadas
+    feature_votes = np.zeros(x_trainf.shape[1])
+    for ind, idx in selected_features_per_output.items():
+        feature_votes[idx] += 1
+
+    # Obtener las posiciones de las n características más votadas
+    index_features = np.argsort(feature_votes)[-nf:][::-1]
+
+    return index_features
 
 
 def read_results_file(csv_filepath, metrics):
@@ -58,20 +100,17 @@ def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, nor
     # Apply feature selection
     nf = int(percentaje_features*x_trainf.shape[1])
     feature_selector = None
+    index_features = None
 
-
-    if feature_selectors == 'SelectFromModel':
-        feature_selector = SequentialFeatureSelector(model, n_features_to_select=nf)
-        x_trainf = feature_selector.fit_transform(x_trainf, y_train)
+    if feature_selectors == 'SFS':
+        feature_selector = SequentialFeatureSelector(model, n_features_to_select=nf).fit(x_trainf, y_train)
+        index_features = feature_selector.get_support(indices=True)
+    elif feature_selectors == 'SelectKBest':
+        index_features = feature_selection_kbest(x_trainf, y_train, nf)
     elif feature_selectors == 'CFS':
-        idx = CFS.cfs(x_trainf, y_train)
-        # Tomar features seleccionadas por idx (indices)
-        x_trainf = x_trainf[:,idx]
-    else: 
-        # Exception 
-        print('Error in feature selection method')
+        index_features = feature_selection_CFS(x_trainf, y_train, nf)
     
-    
+    x_trainf = x_trainf[:, index_features]    
     print('x_train (with feature selection): {} -> {}'.format(x_train1.shape, x_trainf.shape))
 
     training_time_0 = time.time()
@@ -90,12 +129,7 @@ def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, nor
         print('x_test (with future): {} -> {}'.format(x_test1.shape, x_testf.shape))
     
     # Apply feature selection
-    if feature_selectors == 'SelectFromModel':
-        x_testf = feature_selector.transform(x_testf)
-    elif feature_selectors == 'CFS':
-        # Tomar features seleccionadas por idx (indices)
-        x_testf = x_testf[:,idx]
-        
+    x_testf = x_testf[:, index_features]
     print('x_test (with feature selection): {} -> {}'.format(x_test1.shape, x_testf.shape))
 
     test_time_0 = time.time()

@@ -13,7 +13,7 @@
     "forecast_horizon" : [24],
     "delay": 12,
     "future_variables": [[], [0]],
-    "feature_selectors": ["SelectFromModel"],
+    "feature_selectors": ["SelectKBest", "SFS", "CFS"],
     "percentaje_features": [0.5, 0.25, 0.10],
     "model_params": {
         
