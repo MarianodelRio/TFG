@@ -28,14 +28,52 @@ METRICS = {
     "mape": mape,
 }
 
+
+def rebuild_original_ts_column(actual_original: np.ndarray, predicted_original: np.ndarray, 
+                               actual: np.ndarray, predicted: np.ndarray, 
+                               initial_values: np.ndarray, i: int):
+    
+    
+    fh = len(initial_values)
+
+    actual_original[:fh, i] = initial_values
+    predicted_original[:fh, i] = initial_values
+    for j in range(fh, actual.shape[0]):
+        actual_original[j, i] = actual_original[j-fh, i] + actual[j]
+        predicted_original[j, i] =  actual_original[j-fh, i] + predicted[j]
+
+    return actual_original, predicted_original
+
+def rebuild_original_ts(actual: np.ndarray, predicted: np.ndarray, initial_values: np.ndarray):
+
+    actual_original = np.zeros(actual.shape)
+    predicted_original = np.zeros(predicted.shape)
+
+    for i in range(actual.shape[1]):
+        actual_original, predicted_original = rebuild_original_ts_column(actual_original, 
+                                                                        predicted_original, 
+                                                                        actual[:, i], 
+                                                                        predicted[:, i], 
+                                                                        initial_values[:i+1], 
+                                                                        i)
+
+    fh = len(initial_values)
+    actual_original = actual_original[fh:, :]
+    predicted_original = predicted_original[fh:, :]
+    return actual_original, predicted_original
+
+
 def evaluate(
     x_test_denorm: np.ndarray,    
     actual: np.ndarray,
     predicted: np.ndarray,
-    metrics
+    metrics, 
+    initial_values: np.ndarray,
 ):
     results = {}
     cont = 0
+
+    actual, predicted = rebuild_original_ts(actual, predicted, initial_values)
     for name in metrics:
         try:
             res = []

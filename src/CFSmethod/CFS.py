@@ -44,6 +44,7 @@ def cfs(X, y):
     while True:
         merit = -100000000000
         idx = -1
+        print(M)
         for i in range(n_features):
             if i not in F:
                 F.append(i)

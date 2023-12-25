@@ -83,39 +83,24 @@ def read_results_file(csv_filepath, metrics):
     return results
 
 
-def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, normalization_method, feature_selectors, percentaje_features):
+def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, normalization_method):
+    
     model = create_model_ml(model_name, iter_params)
-
     x_train1 = x_train[0]
     if len(x_train) > 1: 
         x_train2 = x_train[1] 
 
     x_trainf = x_train1.reshape(x_train1.shape[0], x_train1.shape[1] * x_train1.shape[2])
     print('x_train: {} -> {}'.format(x_train1.shape, x_trainf.shape))
+    
     if len(x_train) > 1:
         x_train2 = x_train2.reshape(x_train2.shape[0], x_train2.shape[1] * x_train2.shape[2])
         x_trainf = np.concatenate((x_trainf, x_train2), axis=1)
         print('x_train (with future): {} -> {}'.format(x_train1.shape, x_trainf.shape))
 
-    # Apply feature selection
-    nf = int(percentaje_features*x_trainf.shape[1])
-    feature_selector = None
-    index_features = None
-
-    if feature_selectors == 'SFS':
-        feature_selector = SequentialFeatureSelector(model, n_features_to_select=nf).fit(x_trainf, y_train)
-        index_features = feature_selector.get_support(indices=True)
-    elif feature_selectors == 'SelectKBest':
-        index_features = feature_selection_kbest(x_trainf, y_train, nf)
-    elif feature_selectors == 'CFS':
-        index_features = feature_selection_CFS(x_trainf, y_train, nf)
-    
-    x_trainf = x_trainf[:, index_features]    
-    print('x_train (with feature selection): {} -> {}'.format(x_train1.shape, x_trainf.shape))
-
-    training_time_0 = time.time()
+    training_time_i = time.time()
     model.fit(x_trainf, y_train)
-    training_time = time.time() - training_time_0
+    training_time = time.time() - training_time_i
 
     x_test1 = x_test[0]
     if len(x_test) > 1:
@@ -128,13 +113,9 @@ def train_ml(model_name, iter_params, x_train, y_train, x_test, norm_params, nor
         x_testf = np.concatenate((x_testf, x_test2), axis=1)
         print('x_test (with future): {} -> {}'.format(x_test1.shape, x_testf.shape))
     
-    # Apply feature selection
-    x_testf = x_testf[:, index_features]
-    print('x_test (with feature selection): {} -> {}'.format(x_test1.shape, x_testf.shape))
-
-    test_time_0 = time.time()
+    test_time_i = time.time()
     test_forecast = model.predict(x_testf)
-    test_time = time.time() - test_time_0
+    test_time = time.time() - test_time_i
 
     for i in range(test_forecast.shape[0]):
         test_forecast[i] = denormalize_data(
@@ -174,22 +155,20 @@ def main_ml(parameters_path, results_path):
             future_variables = []        
         for model_name in models_ml:
             for normalization_method, past_history, forecast_horizon, \
-            start_train, end_train, start_test, end_test, feature_selectors, percentaje_features in itertools.product(
+            start_train, end_train, start_test, end_test in itertools.product(
                     parameters['normalization_method'],
                     parameters['past_history'],
                     parameters['forecast_horizon'],
                     parameters['start_train'],
                     parameters['end_train'],
                     parameters['start_test'],
-                    parameters['end_test'], 
-                    parameters['feature_selectors'],
-                    parameters['percentaje_features']
+                    parameters['end_test']
 
             ): 
                 csv_filepath = '{}/results_ml.csv'.format(results_path)
                 results = read_results_file(csv_filepath, metrics)
 
-                x_train, y_train, x_test, x_test_denorm, y_test, y_test_denorm, norm_params = read_data(dataset_path, 
+                x_train, y_train, x_test, x_test_denorm, y_test, y_test_denorm, norm_params, initial_values = read_data(dataset_path, 
                 features,
                 future_variables,
                 start_train,
@@ -218,13 +197,11 @@ def main_ml(parameters_path, results_path):
                         y_train,
                         x_test,
                         norm_params,
-                        normalization_method, 
-                        feature_selectors, 
-                        percentaje_features
+                        normalization_method
                     )
 
                     if metrics:
-                        test_metrics = evaluate(x_test_denorm, y_test_denorm, test_forecast, metrics)
+                        test_metrics = evaluate(x_test_denorm, y_test_denorm, test_forecast, metrics, initial_values)
                     else:
                         test_metrics = {}
 
@@ -249,7 +226,6 @@ def main_ml(parameters_path, results_path):
 
                     iter_params_str = "".join(str(iter_params).split(','))
                     features_str = "".join(str(features).split(','))
-                    feature_selection = feature_selectors + ' ' + str(percentaje_features)
                     results = results._append(
                         {
                             "FEATURES": features_str,
@@ -257,7 +233,6 @@ def main_ml(parameters_path, results_path):
                             "TEST DATE": start_test + ' - ' + end_test,
                             "MODEL": model_name,
                             "MODEL_DESCRIPTION": iter_params_str,
-                            "FEATURE SELECTION": feature_selection,
                             "FORECAST_HORIZON": forecast_horizon,
                             "PAST_HISTORY": past_history,
                             "NORMALIZATION": normalization_method,
@@ -268,10 +243,9 @@ def main_ml(parameters_path, results_path):
                         ignore_index=True
                     )
 
-                    print('\nEND OF EXPERIMENT -> {}/{}/{}/{}/{}/{}/{} \n\n'.format(
+                    print('\nEND OF EXPERIMENT -> {}/{}/{}/{}/{}/{} \n\n'.format(
                         results_path,
                         data_date,
-                        feature_selection,
                         num_features,
                         normalization_method,
                         past_history,
@@ -290,5 +264,9 @@ if __name__ == '__main__':
     output_path = '../results'
     
     main_ml(parameters_path1, output_path)
+    main_ml(parameters_path2, output_path)
+    main_ml(parameters_path3, output_path)
+    main_ml(parameters_path4, output_path)
+    
     
     

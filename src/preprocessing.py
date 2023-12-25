@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import sys
 
 def read_dataset(filename):
     """Reads the dataset from the given filename and returns it as a pandas dataframe.
@@ -12,7 +13,25 @@ def read_dataset(filename):
     """
     return pd.read_csv(filename)
 
-def build_dataset(filename, features, start_train, end_train, start_test, end_test, index_name="datetime"):
+
+def build_differencing_ts(data, lag=1):
+    """Builds the differencing time series for the given data.
+
+    Args:
+        data (numpy.array): The data to build the differencing time series for.
+        lag (int, optional): The lag to use for the differencing. Defaults to 1.
+
+    Returns:
+        tuple: A tuple containing the differencing time series and the corresponding initial values.
+    """
+    diff_series = data[lag:] - data[:-lag]
+    diff_series = np.concatenate((diff_series, np.zeros(lag)))
+
+    return diff_series
+
+
+
+def build_dataset(filename, features, start_train, end_train, start_test, end_test, forecast_horizon, index_name="datetime"):
     """Builds the dataset from the given filename.
 
     Args:
@@ -27,13 +46,27 @@ def build_dataset(filename, features, start_train, end_train, start_test, end_te
     # Select features
     dataset = dataset[features]
 
+    fh = forecast_horizon
+    for lag in range(1, fh + 1):
+        precio = dataset["precio_electricidad"].values
+        diff_series = build_differencing_ts(precio, lag)
+        dataset["precio_electricidad_lag_{}".format(lag)] = diff_series
+
+    dataset = dataset[:-fh]
+
     train, test = train_test_split(dataset, start_train, end_train, start_test, end_test)
     
+    initial_values = train["precio_electricidad"].values[-fh:] # Initial values for the test dataset
+
+    train = train.drop(columns=["precio_electricidad"])
+    test = test.drop(columns=["precio_electricidad"])
+
+
     # Transform to numpy array 
     train = train.to_numpy()
     test = test.to_numpy()
 
-    return train, test
+    return train, test, initial_values
 
 def train_test_split(dataset, start_train, end_train, start_test, end_test):
     """Splits the dataset into train and test datasets.
@@ -181,32 +214,36 @@ def build_preprocessing_window(train, test, future_variables, past_history, fore
     x_train_future = []
     x_test_future = []
     
-    for i in range(past_history, len(train) - forecast_horizon - delay + 1):
+    for i in range(past_history, len(train) - delay):
         x_train.append(train[i - past_history:i])
-        y_train.append(train[i + delay:i + delay + forecast_horizon][:, -1]) # -1 para obtener variable a predecir
+        y_train.append(train[i + delay, -forecast_horizon:])
         
         if len(future_variables) > 0:
             x_train_future.append(train[i + delay:i + delay + forecast_horizon][:, future_variables]) 
 
-    for i in range(past_history, len(test) - forecast_horizon - delay + 1):
+    for i in range(past_history, len(test) - delay):
         x_test.append(test[i - past_history:i])
-        y_test.append(test[i + delay:i + delay + forecast_horizon][:, -1]) # -1 para obtener variable a predecir
+        y_test.append(test[i + delay, -forecast_horizon:])
         
         if len(future_variables) > 0:
             x_test_future.append(test[i + delay:i + delay + forecast_horizon][:, future_variables])
             
-    x_train, y_train = np.array(x_train), np.array(y_train)
+    x_train, y_train = np.array(x_train[:-24]), np.array(y_train[:-24])
+    """
     if len(future_variables) > 0:
         x_train = np.delete(x_train, 0, axis=2)
 
-    x_test, y_test = np.array(x_test), np.array(y_test)
-    if len(future_variables) > 0:
-        x_test = np.delete(x_test, 0, axis=2)
-        
-    x_train_future = np.array(x_train_future)
-    x_test_future = np.array(x_test_future)
     
     if len(future_variables) > 0:
+        x_test = np.delete(x_test, 0, axis=2)
+    
+    """
+    x_test, y_test = np.array(x_test[:-24]), np.array(y_test[:-24])
+    x_train_future = np.array(x_train_future[:-24])
+    x_test_future = np.array(x_test_future[:-24])
+    
+    if len(future_variables) > 0:
+        
         return (x_train, x_train_future) , y_train, (x_test, x_test_future), y_test
     else:
         return (x_train, ) , y_train, (x_test, ), y_test
@@ -235,11 +272,12 @@ def read_data(filename, features, future_variables, start_train, end_train,
         numpy.array: The test dataset with the preprocessing window.
         dict: The normalization parameters.
     """
-    train, test = build_dataset(filename, features, start_train, end_train, start_test, end_test)
+    train, test, initial_values = build_dataset(filename, features, start_train, end_train, start_test, end_test, forecast_horizon)
     train_norm, test_norm, norm_params = normalize_dataset(train, test, norm_method)
     x_train, y_train, x_test, y_test = build_preprocessing_window(train_norm, test_norm, future_variables,
                                                                   past_history, forecast_horizon,delay)
-
+    
+    
     y_test_denorm = np.zeros(y_test.shape)
     for i in range(y_test.shape[0]):
         y_test_denorm[i] = denormalize_data(
@@ -255,4 +293,4 @@ def read_data(filename, features, future_variables, start_train, end_train,
     print("Input shape:", x_test[0].shape)
     print("Output shape:", y_test.shape)
 
-    return x_train, y_train, x_test, x_test_denorm, y_test, y_test_denorm, norm_params
+    return x_train, y_train, x_test, x_test_denorm, y_test, y_test_denorm, norm_params, initial_values
